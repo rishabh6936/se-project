@@ -51,3 +51,4 @@ class AdvancedTopicClassifier:
             'top_topic': self.topic_labels[top_indices[0]],
             'top_confidence': round(float(predictions[top_indices[0]]), 4)
         }
+

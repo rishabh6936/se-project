@@ -3,6 +3,10 @@ import time
 import logging
 from db import Database
 from queue_manager import RedisQueue
+from .model import AdvancedTopicClassifier
+
+
+
 
 # --- Worker Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -26,13 +30,26 @@ def process_job(job_data: dict, db_instance: Database):
         return
 
     logger.info(f"Processing text with topic '{topic}'.")
+    
+    #AI Model #################
+    classifier = AdvancedTopicClassifier()
 
-    # --- THIS IS WHERE YOU DO THE SLOW WORK ---
-    # 1. Call your AI model with the 'content'.
-    #    ai_result = my_ai_model.process(content)
-    #
-    # 2. Use the result to create the text in the database.
-    #    (Simulating work with a sleep)
+    # Sample texts for classification
+    texts = [
+        "NASA just launched a new satellite to study climate change.",
+        "Taylor Swift’s concert was an amazing experience!",
+        "Here's how to bake the perfect chocolate chip cookie."
+    ]
+
+    # Run inference
+    for text in texts:
+        result = classifier.classify_text(text)
+        print("\nInput:", result["text"])
+        print("Top Topic:", result["top_topic"])
+        print("Confidence:", result["top_confidence"])
+        print("Top Predictions:")
+        for pred in result["predictions"]:
+            print(f"  - {pred['topic']}: {pred['confidence']}")
     time.sleep(5) 
     
     try:

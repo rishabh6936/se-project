@@ -6,6 +6,7 @@ docker-compose up -d
 
 # Or build and run
 docker-compose build
+
 docker-compose up
 
 

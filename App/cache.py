@@ -5,7 +5,7 @@ from .data import TextResponse, StatsResponse
 class Cache:
     def __init__(self,  redis_url: str = "redis://localhost:6379"):
         # Initialize cache connection
-        pass
+        self.redis = redis.Redis.from_url(redis_url, decode_responses=True)
     
     def get_stats(self) -> Optional[StatsResponse]:
         # Return cached stats if available

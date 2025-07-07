@@ -18,3 +18,7 @@ class TextResponse(BaseModel):
 class StatsResponse(BaseModel):
     total_texts: int
     last_updated: datetime
+
+class JobSubmissionResponse(BaseModel):
+    message: str
+    queue_size: int    

@@ -1,67 +1,116 @@
+version: '3.8'
 
 services:
+  # FastAPI Application
   fastapi-app:
-    build: .
+    build:
+      context: ./App
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
-      - PYTHONPATH=/code
-      - MONGODB_URL=mongodb://mongo:27017
-      - REDIS_URL=redis://redis:6379
-    volumes:
-      - ./app:/code/app
-    restart: unless-stopped
+      - MONGODB_URL=mongodb://mongodb:27017/microservice_db
+      - REDIS_QUEUE_URL=redis://redis-queue:6379
+      - REDIS_CACHE_URL=redis://redis-cache:6379
+      - ENVIRONMENT=production
     depends_on:
-      - redis
-      - mongo
+      - mongodb
+      - redis-queue
+      - redis-cache
+    restart: unless-stopped
     networks:
-      - app-network
-
-  # MongoDB database
-  mongo:
-    image: mongo:7-jammy
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-      MONGO_INITDB_DATABASE: textdb
+      - microservice-network
     volumes:
-      - mongo_data:/data/db
-      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    ports:
-      - "27017:27017"
-    networks:
-      - app-network
+      - ./logs:/app/logs
 
-  # Redis cache
-  redis:
-    image: redis:7-alpine
+  # AI Processing Worker
+  ai-worker:
+    build:
+      context: ./AI
+      dockerfile: Dockerfile
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017/microservice_db
+      - REDIS_QUEUE_URL=redis://redis-queue:6379
+      - REDIS_CACHE_URL=redis://redis-cache:6379
+      - WORKER_CONCURRENCY=4
+    depends_on:
+      - mongodb
+      - redis-queue
+      - redis-cache
+    restart: unless-stopped
+    networks:
+      - microservice-network
+    volumes:
+      - ./logs:/app/logs
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Redis Queue for async processing
+  redis-queue:
+    image: redis:7.2-alpine
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
-      - redis_data:/data
-    networks:
-      - app-network
-
-  # MongoDB Express (optional web interface)
-  mongo-express:
-    image: mongo-express:1.0.0
+      - redis-queue-data:/data
     restart: unless-stopped
-    ports:
-      - "8081:8081"
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: password
-      ME_CONFIG_MONGODB_URL: mongodb://admin:password@mongo:27017/
-      ME_CONFIG_BASICAUTH: false
-    depends_on:
-      - mongo
     networks:
-      - app-network
+      - microservice-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-volumes:
-  mongo_data:
-  redis_data:
+  # Redis Cache for high-performance caching
+  redis-cache:
+    image: redis:7.2-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-cache-data:/data
+    restart: unless-stopped
+    networks:
+      - microservice-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB for primary data storage
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=microservice_db
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    restart: unless-stopped
+    networks:
+      - microservice-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: --replSet rs0 --bind_ip_all
 
 networks:
-  app-network:
+  microservice-network:
     driver: bridge
+
+volumes:
+  mongodb-data:
+  redis-queue-data:
+  redis-cache-data:

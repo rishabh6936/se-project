@@ -25,20 +25,7 @@ class RedisQueue:
         except redis.exceptions.ConnectionError as e:
             logger.error(f"Could not connect to Redis: {e}")
             raise
-
-    def enqueue(self, item: dict):
-        """
-        Add an item to the end of the queue. The item is serialized to a JSON string.
-        :param item: The dictionary to add to the queue.
-        """
-        try:
-            serialized_item = json.dumps(item)
-            self.client.rpush(self.queue_name, serialized_item)
-            logger.info(f"Enqueued job to '{self.queue_name}'.")
-        except Exception as e:
-            logger.error(f"An error occurred during enqueue: {e}")
-            raise
-
+            
     def dequeue(self, block: bool = True, timeout: int = 0):
         """
         Remove and return an item from the front of the queue (blocking by default).

@@ -7,7 +7,7 @@ import logging
 # Set up logging for this module
 logger = logging.getLogger(__name__)
 
-class SyncDatabase:
+class Database:
     """
     A synchronous database connection class for the worker.
     It uses the 'pymongo' driver for standard, blocking database operations.

@@ -5,13 +5,12 @@ from datetime import datetime
 import uvicorn
 import os
 
-# Local imports
 from .db import Database
 from .cache import Cache
-from .queue_manager import RedisQueue # <-- IMPORT THE QUEUE
+from .queue_manager_enqueue import RedisQueue
 from .data import *
 
-# --- App and Middleware Setup ---
+
 app = FastAPI(
     title="Text Management API",
     description="API for managing short texts with timestamps",
@@ -25,24 +24,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Service Initialization ---
-# Instantiate services once on startup
+
 db = Database(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
-cache = Cache(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
-# Use a different Redis DB for the queue to keep it separate from the cache
+cache = Cache(os.getenv("REDIS_CACHE_URL", "redis://localhost:6379"))
 queue = RedisQueue(
     queue_name="text_creation_queue", 
-    url=os.getenv("REDIS_URL", "redis://localhost:6379/1")
+    url=os.getenv("REDIS_QUEUE_URL", "redis://localhost:6379")
 )
 
-# --- Dependency Injection Providers ---
 def get_database():
     return db
 
 def get_cache():
     return cache
 
-def get_queue(): # <-- DEPENDENCY FOR THE QUEUE
+def get_queue():
     return queue
 
 # --- Endpoints ---
@@ -60,10 +56,8 @@ async def submit_text_creation(
         if not text_data.content.strip():
             raise HTTPException(status_code=400, detail="Text content cannot be empty")
         
-        # Pydantic's .dict() method serializes the model to a dictionary
         job_payload = text_data.dict()
         
-        # Enqueue the job for the worker to process
         queue_inst.enqueue(job_payload)
         
         return JobSubmissionResponse(
@@ -71,10 +65,7 @@ async def submit_text_creation(
             queue_size=queue_inst.get_size()
         )
     except Exception as e:
-        # This would catch errors during enqueueing (e.g., Redis is down)
         raise HTTPException(status_code=500, detail=f"Error submitting job to queue: {str(e)}")
-
-# --- UNCHANGED PARTS NOW FILLED IN ---
 
 @app.get("/stats", response_model=StatsResponse)
 async def get_stats(cache_inst: Cache = Depends(get_cache), db_inst: Database = Depends(get_database)):
@@ -83,11 +74,11 @@ async def get_stats(cache_inst: Cache = Depends(get_cache), db_inst: Database = 
     First checks cache, then database if cache miss.
     """
     try:
-        cached_stats = cache_inst.get_stats()
+        cached_stats = await cache_inst.get_stats()
         if cached_stats:
             return cached_stats
         
-        total_texts = db_inst.get_text_count()
+        total_texts =await db_inst.get_text_count()
         stats = StatsResponse(
             total_texts=total_texts,
             last_updated=datetime.now()
@@ -106,7 +97,7 @@ async def get_texts_by_topic(topic: str, db_inst: Database = Depends(get_databas
     Get short texts related to a specific topic.
     """
     try:
-        texts = db_inst.get_texts_by_topic(topic)
+        texts = await db_inst.get_texts_by_topic(topic)
         return texts
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving texts by topic: {str(e)}")
@@ -124,7 +115,7 @@ async def get_texts_by_period(
         if start_date >= end_date:
             raise HTTPException(status_code=400, detail="Start date must be before end date")
         
-        texts = db_inst.get_texts_by_time_period(start_date, end_date)
+        texts = await db_inst.get_texts_by_time_period(start_date, end_date)
         return texts
     except HTTPException:
         raise

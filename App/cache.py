@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
-from .data import TextResponse, StatsResponse
+from data import TextResponse, StatsResponse
 import redis
 import json
 from typing import Optional

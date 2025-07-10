@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017/microservice_db
+      - MONGODB_URL=mongodb://admin:password123@mongodb:27017/microservice_db
       - REDIS_QUEUE_URL=redis://redis-queue:6379
       - REDIS_CACHE_URL=redis://redis-cache:6379
       - ENVIRONMENT=production
@@ -29,7 +29,7 @@ services:
       context: ./AI
       dockerfile: Dockerfile
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017/microservice_db
+      - MONGODB_URL=mongodb://admin:password123@mongodb:27017/microservice_db
       - REDIS_QUEUE_URL=redis://redis-queue:6379
       - REDIS_CACHE_URL=redis://redis-cache:6379
       - WORKER_CONCURRENCY=4
@@ -43,7 +43,7 @@ services:
     volumes:
       - ./logs:/app/logs
     deploy:
-      replicas: 2
+      replicas: 1
       resources:
         limits:
           memory: 2G
@@ -104,7 +104,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    command: --replSet rs0 --bind_ip_all
+  
 
 networks:
   microservice-network:

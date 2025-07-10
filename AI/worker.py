@@ -1,9 +1,14 @@
 import os
 import time
 import logging
-from .sync_db import Database
-from .queue_manager_dequeue import RedisQueue
-from .model import AdvancedTopicClassifier
+import os
+import sys
+import asyncio
+import logging
+import requests 
+from sync_db import Database
+from queue_manager_dequeue import RedisQueue
+from model import AdvancedTopicClassifier
 
 
 
@@ -17,12 +22,13 @@ MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 REDIS_URL = os.getenv("REDIS_QUEUE_URL", "redis://localhost:6379")
 QUEUE_NAME = "text_creation_queue"
 
-def process_job(job_data: dict, db_instance: Database, classifier: AdvancedTopicClassifier):
+async def process_job(job_data: dict, db_instance: Database, classifier: AdvancedTopicClassifier):
     """
     The core logic for processing a single job.
     This is where the AI model would be called and the result saved to the DB.
     """
-    content = job_data.get("text")
+    content = job_data.get("content")
+    topic = job_data.get("topic")
 
     if not content:
         logger.error(f"Invalid job data received: {job_data}")
@@ -33,12 +39,12 @@ def process_job(job_data: dict, db_instance: Database, classifier: AdvancedTopic
     topic = classifier.classify_text(content)
     
     try:
-        created_text = db_instance.create_text_sync(content=content, topic=topic)
+        created_text = await db_instance.create_text_sync(content=content, topic=topic)
         logger.info(f"Successfully created text with ID: {created_text.id}")
     except Exception as e:
         logger.error(f"Failed to create text in DB for job {job_data}. Error: {e}")
     
-def main():
+async def main():
     logger.info("Starting worker process...")
     
     db_conn = Database(MONGODB_URL)
@@ -48,7 +54,7 @@ def main():
     classifier = AdvancedTopicClassifier()
     
     while True:
-        job = worker_queue.dequeue()
+        job = await worker_queue.dequeue()
         if job:
             logger.info(f"Dequeued job: {job}")
             process_job(job, db_conn, classifier)
@@ -57,4 +63,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # --- FIX 3: Use asyncio.run() to start the async main function ---
+    # This creates the event loop and runs the main() coroutine until it's done.
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Worker process shut down.")

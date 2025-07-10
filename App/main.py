@@ -5,10 +5,10 @@ from datetime import datetime
 import uvicorn
 import os
 
-from .db import Database
-from .cache import Cache
-from .queue_manager_enqueue import RedisQueue
-from .data import *
+from db import Database
+from cache import Cache
+from queue_manager_enqueue import RedisQueue
+from data import *
 
 
 app = FastAPI(

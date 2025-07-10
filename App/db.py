@@ -1,7 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import List, Optional
 from datetime import datetime
-from .data import TextResponse
+from data import TextResponse
 
 class Database:
     def __init__(self, connection_string: str = "mongodb://localhost:27017"):

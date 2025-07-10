@@ -23,12 +23,12 @@ class AdvancedTopicClassifier:
             'science_&_technology', 'sports', 'travel_&_adventure', 'youth_&_student_life'
         ]
     
-    def classify_text(self, text: str, top_k: int = 3) -> Dict:
+    def classify_text(self, content: str, top_k: int = 3) -> Dict:
         """
         Classify text using the dedicated topic classification model.
         """
         # Tokenize input
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=512)
+        inputs = self.tokenizer(content, return_tensors="pt", truncation=True, padding=True, max_length=512)
         
         # Get predictions
         with torch.no_grad():
@@ -46,7 +46,7 @@ class AdvancedTopicClassifier:
             })
         
         return {
-            'text': text,
+            'content': content,
             'predictions': top_predictions,
             'top_topic': self.topic_labels[top_indices[0]],
             'top_confidence': round(float(predictions[top_indices[0]]), 4)

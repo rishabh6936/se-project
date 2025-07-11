@@ -4,12 +4,14 @@ from typing import List
 from datetime import datetime
 import uvicorn
 import os
+import logging
 
 from db import Database
 from cache import Cache
 from queue_manager_enqueue import RedisQueue
 from data import *
 
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Text Management API",
@@ -74,11 +76,13 @@ async def get_stats(cache_inst: Cache = Depends(get_cache), db_inst: Database = 
     First checks cache, then database if cache miss.
     """
     try:
-        cached_stats = await cache_inst.get_stats()
+        cached_stats = cache_inst.get_stats()
         if cached_stats:
+            logger.info("get data from cache")
             return cached_stats
         
         total_texts =await db_inst.get_text_count()
+        logger.info("get data from DB")
         stats = StatsResponse(
             total_texts=total_texts,
             last_updated=datetime.now()

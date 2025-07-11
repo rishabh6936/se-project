@@ -1,6 +1,5 @@
-from typing import List, Optional
-from datetime import datetime
-from data import TextResponse, StatsResponse
+from typing import Optional
+from data import StatsResponse
 import redis
 import json
 from typing import Optional

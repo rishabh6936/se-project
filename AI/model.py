@@ -9,12 +9,10 @@ class AdvancedTopicClassifier:
         """
         Initialize with a model specifically trained for topic classification.
         """
-        # Using a model trained specifically for topic classification
         self.model_name = "cardiffnlp/tweet-topic-21-multi"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
         
-        # Topic labels for this specific model
         self.topic_labels = [
             'arts_&_culture', 'business_&_entrepreneurs', 'celebrity_&_pop_culture',
             'diaries_&_daily_life', 'family', 'fashion_&_style', 'film_tv_&_video',
@@ -27,15 +25,12 @@ class AdvancedTopicClassifier:
         """
         Classify text using the dedicated topic classification model.
         """
-        # Tokenize input
         inputs = self.tokenizer(content, return_tensors="pt", truncation=True, padding=True, max_length=512)
         
-        # Get predictions
         with torch.no_grad():
             outputs = self.model(**inputs)
             predictions = torch.sigmoid(outputs.logits).numpy()[0]
         
-        # Get top-k predictions
         top_indices = np.argsort(predictions)[-top_k:][::-1]
         top_predictions = []
         

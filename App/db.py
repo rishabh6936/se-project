@@ -4,9 +4,21 @@ from datetime import datetime
 from data import TextResponse
 
 class Database:
-    def __init__(self, connection_string: str = "mongodb://localhost:27017"):
+    def __init__(self, connection_string: str):
+        """
+        Initializes the async client. Note: Connection is made lazily on first operation.
+        """
+        if connection_string is None:
+            connection_string = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+        
+        self.connection_string = connection_string
         self.client = AsyncIOMotorClient(connection_string)
-        self.db = self.client["text_db"]
+        
+        if "/microservice_db" in connection_string:
+            self.db = self.client.microservice_db
+        else:
+            self.db = self.client.get_default_database()
+            
         self.collection = self.db["texts"]
     
     async def get_text_count(self) -> int:
@@ -18,25 +30,13 @@ class Database:
         return [self._doc_to_response(doc) for doc in docs]
     
     async def get_texts_by_time_period(self, start_date: datetime, end_date: datetime) -> List[TextResponse]:
-        # Return texts within time period
         cursor = self.collection.find({
             "timestamp": {"$gte": start_date, "$lte": end_date}
         })
         docs = await cursor.to_list(length=500)
         return [self._doc_to_response(doc) for doc in docs]
-    
-    async def create_text(self, content: str, topic: Optional[str] = None) -> TextResponse:
-        # Create new text with timestamp and return created object
-        doc = {
-            "text": content,
-            "topic": topic,
-            "timestamp": datetime.now().timestamp()
-        }
-        await self.collection.insert_one(doc)
-        return self._doc_to_response(doc)
 
     def _doc_to_response(self, doc: dict) -> TextResponse:
-        # Convert MongoDB document to a TextResponse model
         return TextResponse(
             id=str(doc["_id"]),
             content=doc["text"],

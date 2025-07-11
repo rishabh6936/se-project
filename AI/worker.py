@@ -1,25 +1,18 @@
 import os
 import time
 import logging
-import os
 import sys
 import asyncio
-import logging
 import requests 
-from sync_db import Database
+from db import Database
 from queue_manager_dequeue import RedisQueue
 from model import AdvancedTopicClassifier
 
-
-
-
-# --- Worker Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("TextCreationWorker")
 
-# The worker needs to connect to the same services as the main app
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-REDIS_URL = os.getenv("REDIS_QUEUE_URL", "redis://localhost:6379")
+MONGODB_URL = os.getenv("MONGODB_URL")
+REDIS_URL = os.getenv("REDIS_QUEUE_URL")
 QUEUE_NAME = "text_creation_queue"
 
 async def process_job(job_data: dict, db_instance: Database, classifier: AdvancedTopicClassifier):
@@ -39,8 +32,8 @@ async def process_job(job_data: dict, db_instance: Database, classifier: Advance
     topic = classifier.classify_text(content)
     
     try:
-        created_text = await db_instance.create_text_sync(content=content, topic=topic)
-        logger.info(f"Successfully created text with ID: {created_text.id}")
+        created_text_id = await db_instance.create_text_async(content=content, topic=topic)
+        logger.info(f"Successfully created text with ID: {created_text_id}")
     except Exception as e:
         logger.error(f"Failed to create text in DB for job {job_data}. Error: {e}")
     
@@ -54,17 +47,15 @@ async def main():
     classifier = AdvancedTopicClassifier()
     
     while True:
-        job = await worker_queue.dequeue()
+        job = worker_queue.dequeue()
         if job:
             logger.info(f"Dequeued job: {job}")
-            process_job(job, db_conn, classifier)
+            await process_job(job, db_conn, classifier)
         else:
             logger.debug("Queue is empty, waiting...")
 
 
 if __name__ == "__main__":
-    # --- FIX 3: Use asyncio.run() to start the async main function ---
-    # This creates the event loop and runs the main() coroutine until it's done.
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

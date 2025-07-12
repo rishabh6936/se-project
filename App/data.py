@@ -10,7 +10,7 @@ class TextCreate(BaseModel):
     topic: Optional[str] = None
 
 class TextResponse(BaseModel):
-    id: int
+    id: str
     content: str
     topic: Optional[str] = None
     timestamp: datetime

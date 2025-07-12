@@ -12,16 +12,20 @@ services:
       - MONGODB_URL=mongodb://admin:password123@mongodb:27017/microservice_db?authSource=admin
       - REDIS_QUEUE_URL=redis://redis-queue:6379
       - REDIS_CACHE_URL=redis://redis-cache:6379
-      - ENVIRONMENT=production
+      - REDIS_LIMITER_URL=redis://redis-limiter:6379
+    # --- CORRECTED depends_on SYNTAX ---
     depends_on:
-      - mongodb
-      - redis-queue
-      - redis-cache
+      mongodb:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      redis-limiter:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - microservice-network
-    volumes:
-      - ./logs:/app/logs
 
   # AI Processing Worker
   ai-worker:
@@ -31,24 +35,20 @@ services:
     environment:
       - MONGODB_URL=mongodb://admin:password123@mongodb:27017/microservice_db?authSource=admin
       - REDIS_QUEUE_URL=redis://redis-queue:6379
-      - REDIS_CACHE_URL=redis://redis-cache:6379
-      - WORKER_CONCURRENCY=4
+      - REDIS_LIMITER_URL=redis://redis-limiter:6379 # The worker needs this
+    # --- CORRECTED depends_on SYNTAX ---
     depends_on:
-      - mongodb
-      - redis-queue
-      - redis-cache
+      mongodb:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+      redis-limiter:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - microservice-network
-    volumes:
-      - ./logs:/app/logs
     deploy:
-      replicas: 1
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 1G
+      replicas: 3
 
   # Redis Queue for async processing
   redis-queue:
@@ -63,9 +63,9 @@ services:
       - microservice-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Redis Cache for high-performance caching
   redis-cache:
@@ -80,9 +80,26 @@ services:
       - microservice-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Rate Limiter for protecting downstream services
+  redis-limiter:
+    image: redis:7.2-alpine
+    ports:
+      - "6381:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - redis-limiter-data:/data
+    restart: unless-stopped
+    networks:
+      - microservice-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # MongoDB for primary data storage
   mongodb:
@@ -92,19 +109,17 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=password123
-      - MONGO_INITDB_DATABASE=microservice_db
     volumes:
       - mongodb-data:/data/db
-      - ./mongo-init:/docker-entrypoint-initdb.d:ro
     restart: unless-stopped
     networks:
       - microservice-network
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 30s
+      test: ["CMD", "mongosh", "--host", "localhost", "--username", "admin", "--password", "password123", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
       timeout: 10s
-      retries: 3
-  
+      retries: 5
+      start_period: 20s
 
 networks:
   microservice-network:
@@ -114,3 +129,4 @@ volumes:
   mongodb-data:
   redis-queue-data:
   redis-cache-data:
+  redis-limiter-data:

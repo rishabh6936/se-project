@@ -39,7 +39,7 @@ class Database:
     def _doc_to_response(self, doc: dict) -> TextResponse:
         return TextResponse(
             id=str(doc["_id"]),
-            content=doc["text"],
+            content=doc["content"],
             topic=doc.get("topic"),
             timestamp=doc["timestamp"]
         )
